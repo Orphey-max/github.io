@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ComfyUI 工作流编辑器</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f0f2f5; --bg2:#ffffff; --bg3:#ffffff; --bg4:#f5f7fa;
+  --bdr:#e2e6ed; --bdr2:#c8cfd8;
+  --t1:#1a1d23; --t2:#6b7280; --t3:#9ca3af;
+  --cyan:#0ea5e9; --purple:#8b5cf6; --green:#16a34a;
+  --orange:#ea580c; --pink:#db2777; --yellow:#ca8a04;
+  --shadow:0 1px 4px rgba(0,0,0,.07),0 4px 16px rgba(0,0,0,.06);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--t1);height:100vh;overflow:hidden}
+#root{height:100vh;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
+
+.hdr{display:flex;align-items:center;gap:12px;padding:0 16px;height:50px;
+  background:#fff;border-bottom:1px solid var(--bdr);flex-shrink:0;z-index:100;position:relative}
+.hdr::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.35}
+.logo{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;
+  font-size:14px;font-weight:700;color:var(--cyan);letter-spacing:.06em}
+.logo-box{width:26px;height:26px;background:linear-gradient(135deg,var(--cyan),var(--purple));
+  border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.proj-chip{background:var(--bg4);border:1px solid var(--bdr);border-radius:4px;
+  padding:2px 8px;font-size:11px;color:var(--cyan);font-family:'JetBrains Mono',monospace;font-weight:600}
+.hdr-end{margin-left:auto;display:flex;gap:6px;align-items:center}
+.btn{display:flex;align-items:center;gap:5px;padding:6px 13px;border-radius:6px;
+  font-size:12px;font-weight:500;cursor:pointer;border:1px solid transparent;
+  transition:all .15s;font-family:'Space Grotesk',sans-serif;white-space:nowrap}
+.btn-g{background:#fff;border-color:var(--bdr);color:var(--t2)}
+.btn-g:hover{border-color:var(--bdr2);color:var(--t1);background:var(--bg4)}
+.btn-p{background:var(--cyan);color:#fff;font-weight:600;border-color:var(--cyan)}
+.btn-p:hover{filter:brightness(1.08);box-shadow:0 2px 10px rgba(14,165,233,.3)}
+.btn-run{background:var(--green);color:#fff;padding:7px 18px;font-weight:700;border-color:var(--green)}
+.btn-run:hover{filter:brightness(1.08);box-shadow:0 2px 12px rgba(22,163,74,.3)}
+.btn-run:disabled{opacity:.45;cursor:not-allowed;filter:none;box-shadow:none}
+.btn-del{background:#fff;border-color:var(--bdr);color:var(--pink)}
+.btn-del:hover{border-color:var(--pink);background:#fdf2f8}
+
+.layout{flex:1;display:flex;overflow:hidden}
+
+.sb{width:215px;flex-shrink:0;background:#f8f9fb;border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;overflow-y:auto}
+.sb-sec{padding:10px}
+.sb-ttl{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--t3);padding:0 4px 7px;font-family:'JetBrains Mono',monospace}
+.pal-item{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:7px;
+  border:1px solid var(--bdr);background:#fff;cursor:grab;margin-bottom:5px;
+  transition:all .15s;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.pal-item:hover{border-color:var(--bdr2);background:var(--bg4);transform:translateX(2px);
+  box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.pal-item:active{cursor:grabbing}
+.pal-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pal-lbl{font-size:11px;font-weight:600;color:var(--t1)}
+.pal-dsc{font-size:9px;color:var(--t3);margin-top:1px}
+.proj-area{border-top:1px solid var(--bdr);flex:1;padding:10px;overflow-y:auto;min-height:0}
+.proj-it{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;
+  border-radius:6px;border:1px solid var(--bdr);margin-bottom:4px;cursor:pointer;
+  transition:all .15s;background:#fff}
+.proj-it:hover{border-color:var(--bdr2);background:var(--bg4)}
+.proj-it.active{border-color:var(--cyan);background:rgba(14,165,233,.06)}
+.proj-nm{font-size:11px;font-weight:600;color:var(--t1)}
+.proj-mt{font-size:9px;color:var(--t3);margin-top:2px}
+.proj-x{background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px;
+  padding:2px 4px;transition:color .15s;border-radius:3px}
+.proj-x:hover{color:var(--pink);background:#fdf2f8}
+
+.cvs{flex:1;position:relative;overflow:hidden;
+  background-color:#f0f2f5;
+  background-image:linear-gradient(var(--bdr) 1px,transparent 1px),
+    linear-gradient(90deg,var(--bdr) 1px,transparent 1px);
+  background-size:40px 40px}
+.cvs-inner{position:absolute;transform-origin:0 0;width:4000px;height:4000px}
+
+.node{position:absolute;border-radius:10px;border:1px solid var(--bdr);
+  background:#fff;box-shadow:var(--shadow);user-select:none;transition:box-shadow .2s}
+.node:hover{box-shadow:0 2px 12px rgba(0,0,0,.1),0 0 0 1px var(--bdr2)}
+.node.running{box-shadow:0 0 0 2px var(--cyan),0 4px 20px rgba(14,165,233,.18);
+  animation:pulse .9s ease-in-out infinite}
+.node.success{box-shadow:0 0 0 2px var(--green),0 4px 16px rgba(22,163,74,.14)}
+.node.error{box-shadow:0 0 0 2px var(--pink),0 4px 16px rgba(219,39,119,.14)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+
+.node-hdr{display:flex;align-items:center;gap:7px;padding:9px 12px;border-radius:9px 9px 0 0;
+  cursor:move;border-bottom:1px solid var(--bdr)}
+.node-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.node-title{font-size:11px;font-weight:700;flex:1;font-family:'JetBrains Mono',monospace;letter-spacing:.04em}
+.node-tag{font-size:9px;color:var(--t2);font-family:'JetBrains Mono',monospace;
+  background:var(--bg4);border:1px solid var(--bdr);border-radius:3px;padding:1px 5px}
+.nbadge{font-size:9px;padding:1px 5px;border-radius:9px;font-family:'JetBrains Mono',monospace}
+.node-x{background:none;border:none;cursor:pointer;color:var(--t3);width:18px;height:18px;
+  border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s}
+.node-x:hover{color:var(--pink);background:#fdf2f8}
+.nbody{padding:10px 12px}
+
+.port-out,.port-in{width:11px;height:11px;border-radius:50%;border:2px solid;
+  cursor:crosshair;position:absolute;transition:transform .12s,box-shadow .12s;z-index:10;background:#fff}
+.port-out{right:-7px}
+.port-in{left:-7px}
+.port-out:hover,.port-in:hover{transform:scale(1.8);box-shadow:0 0 8px currentColor}
+
+.flabel{font-size:10px;color:var(--t2);font-weight:600;margin-bottom:3px;
+  letter-spacing:.05em;font-family:'JetBrains Mono',monospace}
+.ftxt{width:100%;background:var(--bg4);border:1px solid var(--bdr);border-radius:5px;
+  color:var(--t1);font-size:11px;padding:6px 8px;resize:none;
+  font-family:'Space Grotesk',sans-serif;line-height:1.5;transition:border-color .15s}
+.ftxt:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 2px rgba(14,165,233,.12)}
+.finp{width:100%;background:var(--bg4);border:1px solid var(--bdr);border-radius:5px;
+  color:var(--t1);font-size:11px;padding:6px 8px;
+  font-family:'Space Grotesk',sans-serif;transition:border-color .15s}
+.finp:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 2px rgba(14,165,233,.12)}
+.fsel{width:100%;background:var(--bg4);border:1px solid var(--bdr);border-radius:5px;
+  color:var(--t1);font-size:11px;padding:6px 8px;cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 9px center}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
+.ffield{margin-bottom:7px}
+.ffield:last-child{margin-bottom:0}
+.fdiv{height:1px;background:var(--bdr);margin:9px 0}
+.ftog-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.ftog-lbl{font-size:11px;color:var(--t2)}
+.ftog{width:30px;height:17px;border-radius:9px;background:var(--bdr2);cursor:pointer;
+  position:relative;transition:background .2s;border:none;flex-shrink:0}
+.ftog.on{background:var(--cyan)}
+.ftog::after{content:'';position:absolute;width:11px;height:11px;border-radius:50%;
+  background:#fff;top:3px;left:3px;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.ftog.on::after{left:16px}
+
+.prow{display:flex;align-items:center;position:relative;padding:0 2px;margin-bottom:5px}
+.prow-lbl{font-size:10px;color:var(--t2);font-family:'JetBrains Mono',monospace}
+
+.upld{width:100%;min-height:88px;background:var(--bg4);border:1.5px dashed var(--bdr2);
+  border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.upld:hover{border-color:var(--orange);background:#fff7ed}
+.upld img{max-width:100%;max-height:110px;border-radius:5px;object-fit:contain}
+.from-out-badge{position:absolute;top:4px;right:4px;
+  background:rgba(14,165,233,.12);border:1px solid rgba(14,165,233,.35);
+  border-radius:4px;font-size:9px;padding:2px 5px;color:var(--cyan);
+  font-family:'JetBrains Mono',monospace}
+
+.out-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px}
+.out-thumb{aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--bg4);
+  border:1px solid var(--bdr);cursor:pointer;position:relative;transition:all .15s}
+.out-thumb:hover{border-color:var(--pink);transform:scale(1.02);box-shadow:0 2px 10px rgba(0,0,0,.1)}
+.out-thumb img{width:100%;height:100%;object-fit:cover}
+.out-thumb-ovl{position:absolute;inset:0;background:rgba(0,0,0,.48);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  opacity:0;transition:opacity .15s}
+.out-thumb:hover .out-thumb-ovl{opacity:1}
+.out-act{background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.6);
+  color:#1a1d23;font-size:10px;padding:3px 7px;border-radius:4px;cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;transition:all .15s;white-space:nowrap;font-weight:500}
+.out-act:hover{background:#fff}
+.out-act.send{background:rgba(14,165,233,.9);border-color:rgba(14,165,233,.7);color:#fff}
+.out-empty{width:100%;min-height:110px;background:var(--bg4);border:1.5px dashed var(--bdr2);
+  border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;color:var(--t3);font-size:11px}
+
+.conn-svg{position:absolute;top:0;left:0;width:4000px;height:4000px;pointer-events:none;z-index:5}
+@keyframes flow{100%{stroke-dashoffset:-20}}
+
+.zoom-bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:3px;background:#fff;
+  border:1px solid var(--bdr);border-radius:7px;padding:3px;z-index:50;
+  box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.zbtn{width:26px;height:26px;border-radius:4px;background:transparent;border:none;
+  color:var(--t2);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;
+  transition:all .12s}
+.zbtn:hover{background:var(--bg4);color:var(--t1)}
+.zlvl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t2);
+  padding:0 5px;min-width:38px;text-align:center}
+
+/* ── Marquee selection ── */
+.sel-box{position:absolute;border:1.5px dashed #0ea5e9;background:rgba(14,165,233,.07);
+  pointer-events:none;border-radius:3px;z-index:20}
+.node.sel-highlight{box-shadow:0 0 0 2px #0ea5e9,0 4px 16px rgba(14,165,233,.18) !important}
+.sel-toolbar{position:absolute;z-index:60;display:flex;align-items:center;gap:6px;
+  background:#fff;border:1px solid var(--bdr);border-radius:8px;padding:6px 10px;
+  box-shadow:0 4px 20px rgba(0,0,0,.12);font-size:12px;white-space:nowrap}
+.sel-toolbar-title{font-size:11px;font-weight:600;color:var(--t2);
+  font-family:'JetBrains Mono',monospace;margin-right:4px}
+.sel-count{display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:50%;background:var(--cyan);
+  color:#fff;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace}
+
+.minimap{position:absolute;bottom:14px;right:14px;width:150px;height:90px;
+  background:rgba(255,255,255,.97);border:1px solid var(--bdr);border-radius:7px;
+  overflow:hidden;z-index:50;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+
+.sbar{height:24px;flex-shrink:0;background:#f8f9fb;border-top:1px solid var(--bdr);
+  display:flex;align-items:center;gap:14px;padding:0 14px;
+  font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+.sdot{width:5px;height:5px;border-radius:50%;display:inline-block;margin-right:3px}
+.sdot.idle{background:var(--t3)}
+.sdot.running{background:var(--cyan);animation:pdot 1s infinite}
+.sdot.done{background:var(--green)}
+@keyframes pdot{0%,100%{opacity:1}50%{opacity:.2}}
+
+.overlay{position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:200;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:#fff;border:1px solid var(--bdr);border-radius:10px;
+  padding:22px;width:380px;box-shadow:0 16px 50px rgba(0,0,0,.14)}
+.modal-ttl{font-size:15px;font-weight:600;margin-bottom:14px}
+.modal-acts{display:flex;gap:7px;justify-content:flex-end;margin-top:18px}
+
+.toast-wrap{position:fixed;top:58px;right:14px;z-index:300;display:flex;flex-direction:column;gap:6px}
+.toast{background:#fff;border:1px solid var(--bdr);border-radius:7px;
+  padding:8px 14px;font-size:12px;min-width:220px;
+  animation:tin .25s ease;display:flex;align-items:center;gap:7px;
+  box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.toast.success{border-color:var(--green)}
+.toast.error{border-color:var(--pink)}
+.toast.info{border-color:var(--cyan)}
+@keyframes tin{from{transform:translateX(16px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.spin{width:13px;height:13px;border:2px solid var(--bdr);border-top-color:var(--cyan);
+  border-radius:50%;animation:rotate .7s linear infinite;flex-shrink:0}
+@keyframes rotate{to{transform:rotate(360deg)}}
+
+.hist-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:5px}
+.hist-th{aspect-ratio:1;border-radius:4px;overflow:hidden;background:var(--bg4);
+  border:1px solid var(--bdr);cursor:pointer;position:relative}
+.hist-th:hover{border-color:var(--bdr2)}
+.hist-th img{width:100%;height:100%;object-fit:cover}
+.hist-ovl{position:absolute;inset:0;background:rgba(0,0,0,.4);
+  display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;font-size:14px}
+.hist-th:hover .hist-ovl{opacity:1}
+
+.hint-box{font-size:9px;color:var(--t2);padding:5px 7px;border-radius:5px;
+  background:#fff;border:1px solid var(--bdr);line-height:1.7;margin-bottom:5px;
+  box-shadow:0 1px 3px rgba(0,0,0,.04)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const API_BASE = "https://nanobanana.cn";
+const MODEL    = "gemini-3.1-flash-image-preview";
+const getApiKey = () => sessionStorage.getItem("__cfapi") || "";
+// Unicode-safe base64 encode (handles Chinese characters in SVG)
+const safeB64 = str => btoa(unescape(encodeURIComponent(str)));
+
+// Node colors
+const C = {
+  prompt:    '#a855f7',
+  optprompt: '#22d364',
+  imagein:   '#f97316',
+  generate:  '#00d4ff',
+  output:    '#f43f8e',
+};
+
+// Port positions relative to node top-left (x=0 is left edge, x=W is right edge, W=290)
+const W = 290;
+const PORT_POS = {
+  prompt:    { out: { x: W, y: 72 } },
+  optprompt: { out: { x: W, y: 110 } },
+  imagein:   { imgdata: { x: 0, y: 52 }, out: { x: W, y: 100 } },
+  generate:  { prompt: { x: 0, y: 58 }, image: { x: 0, y: 82 }, out: { x: W, y: 310 } },
+  output:    { in: { x: 0, y: 58 }, out: { x: W, y: 58 } },
+};
+
+function portPos(node, portName) {
+  const pp = PORT_POS[node.type]?.[portName];
+  if (!pp) return { x: node.x + W/2, y: node.y + 80 };
+  return { x: node.x + pp.x, y: node.y + pp.y };
+}
+
+let _uid = 200;
+const uid = () => `n${++_uid}_${Date.now().toString(36)}`;
+const cuid = () => `c${Date.now().toString(36)}_${Math.random().toString(36).slice(2,5)}`;
+
+function mkDefault() {
+  return {
+    id: `p${Date.now()}`, name: '默认工作流', created: Date.now(), images: [],
+    nodes: [
+      { id:'dn1', type:'prompt',   x:50,  y:130, data:{ positive:'一只可爱的橘猫在阳光草地上玩耍，高清写实', negative:'ugly, blurry' } },
+      { id:'dn2', type:'generate', x:390, y:90,  data:{ width:1024, height:1024, mode:'standard', count:1, seed:-1, watermark:false } },
+      { id:'dn3', type:'output',   x:730, y:130, data:{ images:[] } },
+    ],
+    connections: [
+      { id:'dc1', from:'dn1', fromPort:'out', to:'dn2', toPort:'prompt' },
+      { id:'dc2', from:'dn2', fromPort:'out', to:'dn3', toPort:'in' },
+    ],
+  };
+}
+
+// ── Toast
+function Toasts({ items }) {
+  return <div className="toast-wrap">{items.map(t=>(
+    <div key={t.id} className={`toast ${t.type}`}>
+      <span>{t.type==='success'?'✓':t.type==='error'?'✕':'ℹ'}</span>{t.msg}
+    </div>
+  ))}</div>;
+}
+
+// ── Prompt Node ──────────────────────────────────────────────────────────────
+function PromptNode({ node, linkedToImage, onUpdate, onDelete, onStartConn }) {
+  const d = node.data, col = C.prompt;
+  return (
+    <div className={`node ${node.status||''} ${node.selHighlight?'sel-highlight':''}`} style={{left:node.x,top:node.y,width:W}}>
+      <div className="node-hdr" style={{background:`${col}18`,borderBottomColor:`${col}44`}}>
+        <span className="node-dot" style={{background:col}}/>
+        <span className="node-title" style={{color:col}}>PROMPT</span>
+        {linkedToImage && (
+          <span className="nbadge" style={{background:'rgba(0,212,255,.1)',border:'1px solid rgba(0,212,255,.3)',color:'var(--cyan)'}}>
+            🔗 图文联动
+          </span>
+        )}
+        {node.status==='running'&&<div className="spin" style={{borderTopColor:col}}/>}
+        {node.status==='success'&&<span style={{color:'var(--green)',fontSize:12}}>✓</span>}
+        <button className="node-x" onClick={()=>onDelete(node.id)}>×</button>
+      </div>
+      <div className="nbody">
+        {linkedToImage && (
+          <div style={{fontSize:10,color:'var(--cyan)',marginBottom:7,padding:'4px 7px',
+            background:'rgba(0,212,255,.07)',borderRadius:5,border:'1px solid rgba(0,212,255,.15)'}}>
+            💡 已与参考图联动 — 生成时将融合图像风格与文字描述
+          </div>
+        )}
+        {/* positive textarea + out port */}
+        <div className="ffield" style={{position:'relative',paddingRight:2}}>
+          <div className="flabel">正向提示词</div>
+          <textarea className="ftxt" rows={3}
+            value={d.positive||''} placeholder="描述你想要的画面..."
+            onChange={e=>onUpdate(node.id,{positive:e.target.value})}/>
+          {/* OUT port */}
+          <div className="port-out" style={{borderColor:col,top:'50%',marginTop:8}}
+            onMouseDown={e=>{e.stopPropagation();onStartConn(node.id,'out',e)}}/>
+        </div>
+        <div className="ffield">
+          <div className="flabel">负向提示词</div>
+          <textarea className="ftxt" rows={2}
+            value={d.negative||''} placeholder="不想要的元素..."
+            onChange={e=>onUpdate(node.id,{negative:e.target.value})}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── OptPrompt Node ────────────────────────────────────────────────────────────
+function OptPromptNode({ node, onUpdate, onDelete, onStartConn }) {
+  const d = node.data, col = C.optprompt;
+  const [loading, setLoading] = useState(false);
+
+  const optimize = async () => {
+    if (!d.input?.trim()) return;
+    setLoading(true);
+    onUpdate(node.id, {status_msg:''});
+    try {
+      const res = await fetch(`${API_BASE}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${getApiKey()}` },
+        body: JSON.stringify({
+          model: 'gemini-2.0-flash',
+          messages: [{role:'user', content:
+            `请将以下中文图像描述优化并翻译成高质量的英文Stable Diffusion提示词。\n`+
+            `要求：使用英文逗号分隔关键词，突出视觉细节、艺术风格、光线、画质等，去除口语化。\n`+
+            `只输出提示词，不要任何解释。\n原文：${d.input}`
+          }]
+        })
+      });
+      const js = await res.json();
+      const out = js.choices?.[0]?.message?.content?.trim() || '';
+      onUpdate(node.id, { output: out });
+    } catch(e) {
+      onUpdate(node.id, { output: '' });
+    }
+    setLoading(false);
+  };
+
+  const hasOutput = !!(d.output?.trim());
+
+  return (
+    <div className={`node ${node.status||''} ${node.selHighlight?'sel-highlight':''}`} style={{left:node.x,top:node.y,width:W}}>
+      <div className="node-hdr" style={{background:`${col}18`,borderBottomColor:`${col}44`}}>
+        <span className="node-dot" style={{background:col}}/>
+        <span className="node-title" style={{color:col}}>OPT PROMPT</span>
+        <span className="nbadge" style={{background:'rgba(34,211,100,.1)',border:'1px solid rgba(34,211,100,.3)',color:col}}>
+          ✨ 中→英
+        </span>
+        <button className="node-x" onClick={()=>onDelete(node.id)}>×</button>
+      </div>
+      <div className="nbody">
+        <div className="ffield">
+          <div className="flabel">中文描述</div>
+          <textarea className="ftxt" rows={3}
+            value={d.input||''} placeholder="输入中文描述，点击下方按钮优化..."
+            onChange={e=>onUpdate(node.id,{input:e.target.value})}/>
+        </div>
+        <button className="btn btn-g" style={{width:'100%',justifyContent:'center',marginBottom:8,fontSize:11}}
+          onClick={optimize} disabled={loading||!d.input?.trim()}>
+          {loading ? <><div className="spin"/>优化中...</> : '⚡ 优化并翻译为英文'}
+        </button>
+
+        {/* Output area — always show port, highlight when has content */}
+        <div className="ffield" style={{position:'relative',paddingRight:2}}>
+          <div className="flabel" style={{color:hasOutput?col:'var(--t3)'}}>
+            {hasOutput ? '✓ 优化结果 — 可连接到生成节点' : '优化结果将显示于此'}
+          </div>
+          <textarea className="ftxt" rows={4} readOnly
+            value={d.output||''}
+            placeholder="点击「优化并翻译」后，结果会出现在这里，然后可拖拽右侧端点连接到生成节点..."
+            style={{
+              color: hasOutput ? col : 'var(--t3)',
+              fontSize: 10,
+              borderColor: hasOutput ? `${col}44` : 'var(--bdr)',
+              background: hasOutput ? `${col}08` : 'var(--bg2)',
+            }}/>
+          {/* OUT port — always present, glows when has output */}
+          <div className="port-out"
+            style={{
+              borderColor: col,
+              top:'50%',
+              boxShadow: hasOutput ? `0 0 8px ${col}` : undefined,
+            }}
+            onMouseDown={e=>{e.stopPropagation();onStartConn(node.id,'out',e)}}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ImageIn Node ──────────────────────────────────────────────────────────────
+function ImageInNode({ node, onUpdate, onDelete, onStartConn, onEndConn }) {
+  const d = node.data, col = C.imagein;
+  const ref = useRef();
+
+  const handleFile = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => onUpdate(node.id, {image:ev.target.result,name:f.name,fromOutput:false});
+    r.readAsDataURL(f);
+  };
+
+  return (
+    <div className={`node ${node.status||''} ${node.selHighlight?'sel-highlight':''}`} style={{left:node.x,top:node.y,width:W}}>
+      <div className="node-hdr" style={{background:`${col}18`,borderBottomColor:`${col}44`}}>
+        <span className="node-dot" style={{background:col}}/>
+        <span className="node-title" style={{color:col}}>IMAGE INPUT</span>
+        {d.fromOutput && (
+          <span className="nbadge" style={{background:'rgba(14,165,233,.1)',border:'1px solid rgba(14,165,233,.3)',color:'var(--cyan)'}}>
+            ♻️ 迭代图
+          </span>
+        )}
+        <button className="node-x" onClick={()=>onDelete(node.id)}>×</button>
+      </div>
+      <div className="nbody">
+        <input ref={ref} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
+
+        {/* ── IN port: receive from output node via connection ── */}
+        <div className="prow" style={{marginBottom:6}}>
+          <div className="port-in" style={{borderColor:'var(--cyan)'}}
+            onMouseUp={e=>{e.stopPropagation();onEndConn(node.id,'imgdata',e)}}/>
+          <span className="prow-lbl" style={{marginLeft:9,color:'var(--cyan)',fontSize:9}}>
+            接收输出图像（连线或点击♻️）
+          </span>
+        </div>
+
+        {/* ── image upload area + OUT port ── */}
+        <div style={{position:'relative',paddingRight:2}}>
+          <div className="upld" onClick={()=>ref.current.click()}>
+            {d.image
+              ? <><img src={d.image} alt="ref"/>
+                  {d.fromOutput && <span className="from-out-badge">♻️ 迭代图</span>}</>
+              : <><span style={{fontSize:24,color:'var(--t3)'}}>📁</span>
+                 <span style={{fontSize:10,color:'var(--t3)',textAlign:'center',padding:'0 8px'}}>
+                   点击上传图片，或从输出节点连线/点击「♻️」
+                 </span></>
+            }
+          </div>
+          {d.name && <div style={{fontSize:9,color:'var(--t3)',marginTop:3}}>{d.name}</div>}
+          <div className="port-out" style={{borderColor:col,top:'50%'}}
+            onMouseDown={e=>{e.stopPropagation();onStartConn(node.id,'out',e)}}/>
+        </div>
+
+        <div className="ffield" style={{marginTop:8}}>
+          <div className="flabel">参考强度 &nbsp;{(d.strength||0.75).toFixed(2)}</div>
+          <input type="range" min="0" max="1" step="0.05" style={{width:'100%'}}
+            value={d.strength||0.75} onChange={e=>onUpdate(node.id,{strength:parseFloat(e.target.value)})}/>
+        </div>
+        {d.image && (
+          <button className="btn btn-g" style={{width:'100%',justifyContent:'center',fontSize:10,padding:'4px 8px',marginTop:2}}
+            onClick={()=>onUpdate(node.id,{image:null,name:null,fromOutput:false})}>
+            ✕ 清除图像
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Generate Node ─────────────────────────────────────────────────────────────
+function GenerateNode({ node, connSrcTypes, onUpdate, onDelete, onStartConn, onEndConn }) {
+  const d = node.data, col = C.generate;
+  const [custom, setCustom] = useState(false);
+  const PRESETS = [
+    {l:'512×512',w:512,h:512},{l:'768×768',w:768,h:768},{l:'1024×1024',w:1024,h:1024},
+    {l:'1280×720',w:1280,h:720},{l:'720×1280',w:720,h:1280},
+    {l:'2048×2048',w:2048,h:2048},{l:'4096×4096',w:4096,h:4096},{l:'自定义',w:0,h:0},
+  ];
+  const hasPrompt = connSrcTypes.some(t=>t==='prompt'||t==='optprompt');
+  const hasImg    = connSrcTypes.includes('imagein');
+
+  return (
+    <div className={`node ${node.status||''} ${node.selHighlight?'sel-highlight':''}`} style={{left:node.x,top:node.y,width:W}}>
+      <div className="node-hdr" style={{background:`${col}18`,borderBottomColor:`${col}44`}}>
+        <span className="node-dot" style={{background:col}}/>
+        <span className="node-title" style={{color:col}}>GENERATE</span>
+        <span className="node-tag">⚡ 生成</span>
+        {node.status==='running'&&<div className="spin" style={{borderTopColor:col}}/>}
+        <button className="node-x" onClick={()=>onDelete(node.id)}>×</button>
+      </div>
+      <div className="nbody">
+        {/* ── In ports ── */}
+        <div className="prow">
+          <div className="port-in"
+            style={{borderColor:hasPrompt?'#a855f7':C.generate,
+              boxShadow:hasPrompt?'0 0 7px #a855f7':undefined}}
+            onMouseUp={e=>{e.stopPropagation();onEndConn(node.id,'prompt',e)}}/>
+          <span className="prow-lbl" style={{marginLeft:9,color:hasPrompt?'#a855f7':'var(--t3)'}}>
+            {hasPrompt?`✓ 提示词已连接 (${connSrcTypes.filter(t=>t==='prompt'||t==='optprompt').join('+')})`
+              :'◌ 提示词 — 接 Prompt 或 OptPrompt 节点'}
+          </span>
+        </div>
+        <div className="prow">
+          <div className="port-in"
+            style={{borderColor:hasImg?C.imagein:C.generate,
+              boxShadow:hasImg?`0 0 7px ${C.imagein}`:undefined}}
+            onMouseUp={e=>{e.stopPropagation();onEndConn(node.id,'image',e)}}/>
+          <span className="prow-lbl" style={{marginLeft:9,color:hasImg?C.imagein:'var(--t3)'}}>
+            {hasImg?'✓ 参考图已连接 — 图生图模式':'◌ 参考图（可选）— 接 ImageIn 节点'}
+          </span>
+        </div>
+        {hasPrompt && hasImg && (
+          <div style={{fontSize:10,color:'var(--cyan)',marginBottom:6,padding:'4px 7px',
+            background:'rgba(0,212,255,.07)',borderRadius:5,border:'1px solid rgba(0,212,255,.15)'}}>
+            🎯 文图联动模式 — 将融合文字描述与参考图风格生成
+          </div>
+        )}
+        <div className="fdiv"/>
+        <div className="ffield">
+          <div className="flabel">分辨率</div>
+          <select className="fsel"
+            value={custom?'自定义':PRESETS.find(p=>p.w===d.width&&p.h===d.height)?.l||'自定义'}
+            onChange={e=>{
+              const p=PRESETS.find(x=>x.l===e.target.value);
+              if(p&&p.w>0){onUpdate(node.id,{width:p.w,height:p.h});setCustom(false);}
+              else setCustom(true);
+            }}>
+            {PRESETS.map(p=><option key={p.l}>{p.l}</option>)}
+          </select>
+        </div>
+        {custom&&<div className="frow">
+          <div><div className="flabel">宽(px)</div>
+            <input type="number" className="finp" value={d.width} min={64} max={8192} step={64}
+              onChange={e=>onUpdate(node.id,{width:parseInt(e.target.value)||512})}/></div>
+          <div><div className="flabel">高(px)</div>
+            <input type="number" className="finp" value={d.height} min={64} max={8192} step={64}
+              onChange={e=>onUpdate(node.id,{height:parseInt(e.target.value)||512})}/></div>
+        </div>}
+        <div className="frow">
+          <div>
+            <div className="flabel">优化模式</div>
+            <select className="fsel" value={d.mode||'standard'}
+              onChange={e=>onUpdate(node.id,{mode:e.target.value})}>
+              <option value="standard">标准</option>
+              <option value="creative">创意</option>
+              <option value="raw">原始</option>
+            </select>
+          </div>
+          <div>
+            <div className="flabel">生成数量</div>
+            <input type="number" className="finp" value={d.count||1} min={1} max={4}
+              onChange={e=>onUpdate(node.id,{count:parseInt(e.target.value)||1})}/>
+          </div>
+        </div>
+        <div className="frow">
+          <div>
+            <div className="flabel">随机种子</div>
+            <input type="number" className="finp" value={d.seed||-1}
+              onChange={e=>onUpdate(node.id,{seed:parseInt(e.target.value)})}/>
+          </div>
+          <div style={{display:'flex',alignItems:'flex-end',paddingBottom:1}}>
+            <div className="ftog-row" style={{marginBottom:0,width:'100%'}}>
+              <span className="ftog-lbl" style={{fontSize:10}}>水印</span>
+              <button className={`ftog ${d.watermark?'on':''}`}
+                onClick={()=>onUpdate(node.id,{watermark:!d.watermark})}/>
+            </div>
+          </div>
+        </div>
+        <div className="fdiv"/>
+        {/* OUT port */}
+        <div className="prow" style={{justifyContent:'flex-end',marginBottom:0}}>
+          <span className="prow-lbl" style={{marginRight:8}}>生成结果输出</span>
+          <div className="port-out" style={{borderColor:col,position:'relative',right:'auto'}}
+            onMouseDown={e=>{e.stopPropagation();onStartConn(node.id,'out',e)}}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Output Node ───────────────────────────────────────────────────────────────
+function OutputNode({ node, onDelete, onEndConn, onStartConn, onSendToImageIn }) {
+  const d = node.data, col = C.output;
+
+  return (
+    <div className={`node ${node.status||''} ${node.selHighlight?'sel-highlight':''}`} style={{left:node.x,top:node.y,width:W}}>
+      <div className="node-hdr" style={{background:`${col}18`,borderBottomColor:`${col}44`}}>
+        <span className="node-dot" style={{background:col}}/>
+        <span className="node-title" style={{color:col}}>OUTPUT</span>
+        <span className="node-tag">🎨 输出</span>
+        {node.status==='running'&&<div className="spin" style={{borderTopColor:col}}/>}
+        {node.status==='success'&&<span style={{color:'var(--green)',fontSize:11}}>✓ 完成</span>}
+        <button className="node-x" onClick={()=>onDelete(node.id)}>×</button>
+      </div>
+      <div className="nbody">
+        {/* IN + OUT ports in header row */}
+        <div className="prow" style={{marginBottom:8}}>
+          <div className="port-in" style={{borderColor:col}}
+            onMouseUp={e=>{e.stopPropagation();onEndConn(node.id,'in',e)}}/>
+          <span className="prow-lbl" style={{marginLeft:9,flex:1}}>接收生成结果</span>
+          <span className="prow-lbl" style={{marginRight:8,color:'var(--cyan)',fontSize:9}}>
+            发送到参考图 ♻️
+          </span>
+          <div className="port-out" style={{
+              borderColor:'var(--cyan)',position:'relative',right:'auto',
+              boxShadow: d.images?.length?'0 0 8px var(--cyan)':undefined
+            }}
+            onMouseDown={e=>{e.stopPropagation();onStartConn(node.id,'out',e)}}/>
+        </div>
+
+        {d.images&&d.images.length>0 ? (
+          <>
+            <div className="out-grid">
+              {d.images.map((img,i)=>(
+                <div key={i} className="out-thumb">
+                  <img src={img} alt={`result ${i}`}/>
+                  <div className="out-thumb-ovl">
+                    <button className="out-act" onClick={()=>{
+                      const a=document.createElement('a');a.href=img;a.download=`gen_${Date.now()}.png`;a.click();
+                    }}>↓ 下载</button>
+                    <button className="out-act send" onClick={()=>onSendToImageIn(img)}>
+                      ♻️ 送到参考图
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+              {d.images.map((img,i)=>(
+                <button key={i} className="btn btn-g" style={{fontSize:10,padding:'3px 8px',flex:'1 0 auto'}}
+                  onClick={()=>onSendToImageIn(img)}>
+                  ♻️ 图{i+1}→参考图
+                </button>
+              ))}
+            </div>
+          </>
+        ):(
+          <div className="out-empty">
+            <span style={{fontSize:28}}>🎨</span>
+            <span>运行工作流后显示结果</span>
+            <span style={{fontSize:10,color:'var(--t3)',marginTop:2}}>
+              结果图可通过 ♻️ 发送回参考图节点迭代
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── SVG Connection lines ──────────────────────────────────────────────────────
+function ConnSVG({ conns, nodes, drag, onDeleteConn, onReRouteStart }) {
+  const curve = (x1,y1,x2,y2) => {
+    const dx = Math.abs(x2-x1)*0.5;
+    return `M${x1} ${y1}C${x1+dx} ${y1} ${x2-dx} ${y2} ${x2} ${y2}`;
+  };
+  const lineColor = (fromType) => C[fromType]||'#666';
+  const [hovered, setHovered] = useState(null);
+
+  return (
+    <svg className="conn-svg" style={{pointerEvents:'none'}}>
+      <defs>
+        {Object.entries(C).map(([k,v])=>(
+          <marker key={k} id={`arr-${k}`} markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+            <path d="M0,0L0,6L7,3z" fill={v} opacity=".85"/>
+          </marker>
+        ))}
+        <marker id="arr-drag" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+          <path d="M0,0L0,6L7,3z" fill="var(--cyan)" opacity=".8"/>
+        </marker>
+        <marker id="arr-hover" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+          <path d="M0,0L0,6L7,3z" fill="#ef4444" opacity=".9"/>
+        </marker>
+      </defs>
+      {conns.map(conn=>{
+        const fn=nodes.find(n=>n.id===conn.from), tn=nodes.find(n=>n.id===conn.to);
+        if(!fn||!tn)return null;
+        const fp=portPos(fn,'out'), tp=portPos(tn,conn.toPort);
+        const col=lineColor(fn.type);
+        const d=curve(fp.x,fp.y,tp.x,tp.y);
+        const isHov=hovered===conn.id;
+        // midpoint for handle
+        const mx=(fp.x+tp.x)/2, my=(fp.y+tp.y)/2;
+        return (
+          <g key={conn.id}>
+            {/* fat invisible hit area */}
+            <path d={d} fill="none" stroke="transparent" strokeWidth="18"
+              style={{pointerEvents:'stroke',cursor:'pointer'}}
+              onMouseEnter={()=>setHovered(conn.id)}
+              onMouseLeave={()=>setHovered(null)}/>
+            {/* glow shadow */}
+            <path d={d} fill="none" stroke={isHov?'#ef4444':col} strokeWidth="5"
+              strokeOpacity={isHov?.18:.08}/>
+            {/* animated line */}
+            <path d={d} fill="none" stroke={isHov?'#ef4444':col} strokeWidth={isHov?2.5:2}
+              strokeOpacity={isHov?.95:.88}
+              strokeDasharray="8 4"
+              markerEnd={isHov?'url(#arr-hover)':`url(#arr-${fn.type})`}
+              style={{animation:'flow 1.8s linear infinite'}}/>
+            {/* endpoint handles for re-routing */}
+            {isHov&&<>
+              {/* FROM handle (re-route source) */}
+              <circle cx={fp.x} cy={fp.y} r="6" fill={col} stroke="#fff" strokeWidth="2"
+                style={{pointerEvents:'all',cursor:'crosshair'}}
+                onMouseDown={e=>{e.stopPropagation();onReRouteStart(conn.id,'from',fp.x,fp.y,e);}}/>
+              {/* TO handle (re-route target) */}
+              <circle cx={tp.x} cy={tp.y} r="6" fill={col} stroke="#fff" strokeWidth="2"
+                style={{pointerEvents:'all',cursor:'crosshair'}}
+                onMouseDown={e=>{e.stopPropagation();onReRouteStart(conn.id,'to',tp.x,tp.y,e);}}/>
+              {/* DELETE button at midpoint */}
+              <g style={{pointerEvents:'all',cursor:'pointer'}}
+                onClick={()=>onDeleteConn(conn.id)}
+                onMouseEnter={()=>setHovered(conn.id)} onMouseLeave={()=>setHovered(null)}>
+                <circle cx={mx} cy={my} r="9" fill="#ef4444" stroke="#fff" strokeWidth="2"/>
+                <text x={mx} y={my+1} textAnchor="middle" dominantBaseline="middle"
+                  fontSize="12" fill="#fff" fontWeight="bold" style={{userSelect:'none'}}>×</text>
+              </g>
+            </>}
+          </g>
+        );
+      })}
+      {drag&&(
+        <path fill="none" stroke="var(--cyan)" strokeWidth="2" strokeDasharray="6 3" opacity=".75"
+          markerEnd="url(#arr-drag)"
+          d={curve(drag.x1,drag.y1,drag.x2,drag.y2)}/>
+      )}
+      <style>{`@keyframes flow{100%{stroke-dashoffset:-20}}`}</style>
+    </svg>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [projects, setProjects] = useState(()=>{
+    try{return JSON.parse(localStorage.getItem('cfp2')||'[]')}catch{return []}
+  });
+  const [pid,       setPid]       = useState(null);
+  const [showNP,    setShowNP]    = useState(false);
+  const [npName,    setNPName]    = useState('');
+  const [running,   setRunning]   = useState(false);
+  const [showApiCfg,setShowApiCfg]= useState(()=>!sessionStorage.getItem("__cfapi"));
+  const [apiKeyInput,setApiKeyInput]=useState('');
+  const [connDrag,  setConnDrag]  = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set()); // selected node ids
+  const [marquee,     setMarquee]     = useState(null);      // {sx,sy,ex,ey} canvas coords
+  const marqueeRef = useRef(null);
+  const [zoom,   setZoom]   = useState(1);
+  const [pan,    setPan]    = useState({x:60,y:60});
+  const [drag,   setDrag]   = useState(null); // connection drag
+  const [panOn,  setPanOn]  = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const cvs    = useRef();
+  const dnRef  = useRef(null); // dragging node
+  const panRef = useRef(null);
+
+  const ap = projects.find(p=>p.id===pid);
+
+  useEffect(()=>{localStorage.setItem('cfp2',JSON.stringify(projects))},[projects]);
+  useEffect(()=>{
+    if(!projects.length){const d=mkDefault();setProjects([d]);setPid(d.id);}
+    else if(!pid) setPid(projects[0].id);
+  },[]);
+
+  const toast = (msg,type='info')=>{
+    const id=Date.now();
+    setToasts(t=>[...t,{id,msg,type}]);
+    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3500);
+  };
+
+  const saveApiKey = ()=>{
+    const k=apiKeyInput.trim();
+    if(!k){toast('请输入有效的 API Key','error');return;}
+    sessionStorage.setItem("__cfapi",k);
+    setShowApiCfg(false);
+    setApiKeyInput('');
+    toast('✓ API Key 已保存（仅本次会话有效）','success');
+  };
+
+  const deleteConn = (connId)=>{
+    upP(p=>({...p,connections:p.connections.filter(c=>c.id!==connId)}));
+  };
+
+  const upP = fn => setProjects(ps=>ps.map(p=>p.id===pid?fn(p):p));
+  const upN = (nid,data) => upP(p=>({...p,nodes:p.nodes.map(n=>n.id===nid?{...n,data:{...n.data,...data}}:n)}));
+  const delN = nid => upP(p=>({...p,
+    nodes:p.nodes.filter(n=>n.id!==nid),
+    connections:p.connections.filter(c=>c.from!==nid&&c.to!==nid)
+  }));
+
+  // ── Drag nodes
+  const onNMD = (e,nid)=>{
+    if(e.target.closest('textarea,input,select,button')) return;
+    e.preventDefault(); e.stopPropagation();
+    const n=ap?.nodes.find(x=>x.id===nid); if(!n)return;
+    dnRef.current={nid,sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y};
+  };
+
+  useEffect(()=>{
+    const mm=e=>{
+      if(dnRef.current){
+        const{nid,sx,sy,ox,oy}=dnRef.current;
+        upP(p=>({...p,nodes:p.nodes.map(n=>n.id===nid
+          ?{...n,x:Math.max(0,ox+(e.clientX-sx)/zoom),y:Math.max(0,oy+(e.clientY-sy)/zoom)}:n)}));
+      }
+      if(panRef.current&&panOn){
+        setPan({x:panRef.current.px+(e.clientX-panRef.current.sx),
+               y:panRef.current.py+(e.clientY-panRef.current.sy)});
+      }
+      if(drag){
+        const r=cvs.current?.getBoundingClientRect();
+        if(r) setDrag(d=>d?{...d,x2:(e.clientX-r.left-pan.x)/zoom,y2:(e.clientY-r.top-pan.y)/zoom}:null);
+      }
+      if(marqueeRef.current){
+        const r=cvs.current?.getBoundingClientRect();
+        if(r){
+          const ex=(e.clientX-r.left-pan.x)/zoom, ey=(e.clientY-r.top-pan.y)/zoom;
+          marqueeRef.current.ex=ex; marqueeRef.current.ey=ey;
+          setMarquee(m=>m?{...m,ex,ey}:null);
+        }
+      }
+    };
+    const mu=()=>{
+      dnRef.current=null; panRef.current=null;
+      setPanOn(false);
+      if(drag) setDrag(null);
+      // Finalise marquee selection
+      if(marqueeRef.current&&ap){
+        const{sx,sy,ex,ey}=marqueeRef.current;
+        const minX=Math.min(sx,ex),maxX=Math.max(sx,ex);
+        const minY=Math.min(sy,ey),maxY=Math.max(sy,ey);
+        const dist=Math.hypot(ex-sx,ey-sy);
+        if(dist>6){
+          const NODE_H=200;
+          const ids=new Set(ap.nodes
+            .filter(n=>n.x<maxX&&n.x+W>minX&&n.y<maxY&&n.y+NODE_H>minY)
+            .map(n=>n.id));
+          setSelectedIds(ids);
+        }
+        marqueeRef.current=null;
+        setMarquee(null);
+      }
+    };
+    window.addEventListener('mousemove',mm);
+    window.addEventListener('mouseup',mu);
+    return()=>{window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu)};
+  },[zoom,pan,drag,panOn,pid]);
+
+  const onCMD = e=>{
+    const onNode = e.target.closest('.node');
+    const onBtn  = e.target.closest('button,input,textarea,select,a');
+    // Middle-click OR Alt+left → pan
+    if(e.button===1 || (e.button===0 && e.altKey && !onNode && !onBtn)){
+      e.preventDefault();
+      panRef.current={sx:e.clientX,sy:e.clientY,px:pan.x,py:pan.y};
+      setPanOn(true);
+      return;
+    }
+    // Plain left-click on bare canvas → marquee select
+    if(e.button===0 && !onNode && !onBtn){
+      e.preventDefault();
+      const r=cvs.current?.getBoundingClientRect(); if(!r)return;
+      const cx=(e.clientX-r.left-pan.x)/zoom, cy=(e.clientY-r.top-pan.y)/zoom;
+      marqueeRef.current={sx:cx,sy:cy,ex:cx,ey:cy,startX:e.clientX,startY:e.clientY};
+      setMarquee({sx:cx,sy:cy,ex:cx,ey:cy});
+      setSelectedIds(new Set()); // clear selection on new marquee
+    }
+  };
+  const onWheel = e=>{
+    e.preventDefault();
+    setZoom(z=>Math.max(.15,Math.min(3,z*(e.deltaY>0?.9:1.1))));
+  };
+
+  const onDrop = e=>{
+    e.preventDefault();
+    const type=e.dataTransfer.getData('node_type'); if(!type||!ap)return;
+    const r=cvs.current.getBoundingClientRect();
+    const x=(e.clientX-r.left-pan.x)/zoom, y=(e.clientY-r.top-pan.y)/zoom;
+    const defs={
+      prompt:{positive:'',negative:''},
+      optprompt:{input:'',output:''},
+      imagein:{image:null,strength:.75,fromOutput:false},
+      generate:{width:1024,height:1024,mode:'standard',count:1,seed:-1,watermark:false},
+      output:{images:[]},
+    };
+    upP(p=>({...p,nodes:[...p.nodes,{id:uid(),type,x:Math.max(0,x-145),y:Math.max(0,y-60),data:defs[type]||{}}]}));
+  };
+
+  // ── Connection helpers
+  const startConn = (nid,port,e)=>{
+    const r=cvs.current?.getBoundingClientRect(); if(!r)return;
+    const n=ap?.nodes.find(x=>x.id===nid); if(!n)return;
+    const pp=portPos(n,'out');
+    setDrag({fromNode:nid,fromPort:port,x1:pp.x,y1:pp.y,
+      x2:(e.clientX-r.left-pan.x)/zoom,y2:(e.clientY-r.top-pan.y)/zoom});
+  };
+
+  const endConn = (nid,port,e)=>{
+    if(!drag)return;
+    // Special: if connecting output→imagein.imgdata, push latest image immediately
+    if(port==='imgdata'&&drag.fromNode){
+      const srcNode=ap?.nodes.find(n=>n.id===drag.fromNode);
+      if(srcNode?.type==='output'&&srcNode.data.images?.length){
+        const img=srcNode.data.images[0];
+        upN(nid,{image:img,name:'来自输出节点',fromOutput:true});
+      }
+    }
+    if(drag.fromNode===nid)return;
+    // For reroute-from drags that have no fromNode, skip adding connection
+    if(!drag.fromNode){setDrag(null);return;}
+    const id=cuid();
+    upP(p=>({...p,connections:[
+      ...p.connections.filter(c=>!(c.to===nid&&c.toPort===port)),
+      {id,from:drag.fromNode,fromPort:drag.fromPort,to:nid,toPort:port}
+    ]}));
+    setDrag(null);
+  };
+
+  // ── Re-route existing connection endpoint
+  const reRouteStart = (connId, end, startX, startY, e)=>{
+    // Remove old connection, start a new drag from the free end
+    const conn = ap?.connections.find(c=>c.id===connId); if(!conn)return;
+    const r=cvs.current?.getBoundingClientRect(); if(!r)return;
+    // Delete old connection
+    upP(p=>({...p,connections:p.connections.filter(c=>c.id!==connId)}));
+    if(end==='to'){
+      // Dragging the TO end — keep FROM, start new drag from FROM port
+      const fn=ap?.nodes.find(n=>n.id===conn.from); if(!fn)return;
+      const fp=portPos(fn,'out');
+      setDrag({fromNode:conn.from,fromPort:conn.fromPort,x1:fp.x,y1:fp.y,
+        x2:(e.clientX-r.left-pan.x)/zoom,y2:(e.clientY-r.top-pan.y)/zoom});
+    } else {
+      // Dragging the FROM end — keep TO hint only (just start fresh drag)
+      setDrag({fromNode:null,fromPort:null,x1:startX,y1:startY,
+        x2:(e.clientX-r.left-pan.x)/zoom,y2:(e.clientY-r.top-pan.y)/zoom,
+        rerouteToNode:conn.to,rerouteToPort:conn.toPort});
+    }
+  };
+
+  // ── Send output image to ImageIn
+  const sendToImageIn = img=>{
+    if(!ap)return;
+    const existing=ap.nodes.find(n=>n.type==='imagein');
+    if(existing){
+      upN(existing.id,{image:img,name:'来自输出节点',fromOutput:true});
+      toast('♻️ 图像已送入参考图节点','success');
+    } else {
+      const outN=ap.nodes.find(n=>n.type==='output');
+      const nx=(outN?.x||400), ny=(outN?.y||200)+270;
+      upP(p=>({...p,nodes:[...p.nodes,{id:uid(),type:'imagein',x:nx,y:ny,
+        data:{image:img,name:'来自输出节点',strength:.75,fromOutput:true}}]}));
+      toast('♻️ 已创建参考图节点并送入图像','success');
+    }
+  };
+
+  // ── Get types of nodes connected INTO a given node
+  const connSrcTypes = nid=>{
+    if(!ap)return [];
+    return ap.connections.filter(c=>c.to===nid)
+      .map(c=>ap.nodes.find(n=>n.id===c.from)?.type)
+      .filter(Boolean);
+  };
+
+  // ── Is a prompt node connected to a generate that also has imagein?
+  const promptLinkedToImage = nid=>{
+    if(!ap)return false;
+    for(const g of ap.nodes.filter(n=>n.type==='generate')){
+      const ins=ap.connections.filter(c=>c.to===g.id);
+      if(ins.some(c=>c.from===nid) && ins.some(c=>ap.nodes.find(n=>n.id===c.from)?.type==='imagein'))
+        return true;
+    }
+    return false;
+  };
+
+  // ── Run workflow ────────────────────────────────────────────────────────────
+  const run = async()=>{
+    if(!ap)return;
+    setRunning(true);
+    toast('▶ 开始执行工作流...','info');
+    upP(p=>({...p,nodes:p.nodes.map(n=>({...n,status:''}))}));
+
+    try {
+      const {nodes,connections:conns}=ap;
+      const gens=nodes.filter(n=>n.type==='generate');
+      const outs=nodes.filter(n=>n.type==='output');
+      if(!gens.length){toast('请添加生成节点','error');setRunning(false);return;}
+      if(!outs.length){toast('请添加输出节点','error');setRunning(false);return;}
+
+      for(const gen of gens){
+        upP(p=>({...p,nodes:p.nodes.map(n=>n.id===gen.id?{...n,status:'running'}:n)}));
+
+        const ins=conns.filter(c=>c.to===gen.id);
+
+        // ── Collect prompts
+        let pos='', neg='';
+        for(const c of ins){
+          const src=nodes.find(n=>n.id===c.from); if(!src)continue;
+          if(src.type==='prompt'){
+            pos+=(src.data.positive||'')+' ';
+            neg+=(src.data.negative||'')+' ';
+          } else if(src.type==='optprompt'){
+            // prefer optimized output over raw input
+            const txt=(src.data.output?.trim())||src.data.input?.trim()||'';
+            pos+=txt+' ';
+          }
+        }
+        pos=pos.trim(); neg=neg.trim();
+
+        // ── Fallback: use any prompt node on canvas if none connected
+        if(!pos){
+          const fp=nodes.find(n=>n.type==='prompt');
+          if(fp){pos=(fp.data.positive||'').trim();neg=(fp.data.negative||'').trim();}
+          const fo=nodes.find(n=>n.type==='optprompt');
+          if(fo){pos+=(' '+(fo.data.output||fo.data.input||'')).trim();}
+          pos=pos.trim();
+        }
+        if(!pos){toast('提示词为空！','error');continue;}
+
+        // ── Collect reference image
+        let refImg=null, refStr=0.75;
+        for(const c of ins){
+          const src=nodes.find(n=>n.id===c.from);
+          if(src?.type==='imagein'&&src.data.image){
+            refImg=src.data.image; refStr=src.data.strength||0.75; break;
+          }
+        }
+
+        const gd=gen.data, count=Math.min(gd.count||1,4);
+        const allImgs=[];
+
+        for(let i=0;i<count;i++){
+          let prompt=pos;
+          if(gd.mode==='creative') prompt=`highly creative, imaginative, ${prompt}, masterpiece, ultra detailed, 8k`;
+          else if(gd.mode==='standard') prompt=`${prompt}, high quality, detailed, sharp focus, professional photography`;
+          if(neg) prompt+=` --no ${neg}`;
+          prompt+=` --ar ${gd.width}:${gd.height}`;
+          if(gd.watermark) prompt+=', with subtle watermark';
+          if(refImg) prompt+=`, inspired by and referencing the provided image (weight: ${refStr.toFixed(2)})`;
+
+          // Build message content
+          let content;
+          if(refImg){
+            content=[
+              {type:'image_url',image_url:{url:refImg}},
+              {type:'text',text:`Using the above image as reference (strength ${refStr.toFixed(2)}), generate a new image: ${prompt}`}
+            ];
+          } else {
+            content=`Generate an image: ${prompt}`;
+          }
+
+          const resp=await fetch(`${API_BASE}/v1/chat/completions`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json','Authorization':`Bearer ${getApiKey()}`},
+            body:JSON.stringify({model:MODEL,max_tokens:4096,
+              messages:[{role:'user',content}]
+            })
+          });
+
+          if(!resp.ok){
+            const t=await resp.text();
+            throw new Error(`API ${resp.status}: ${t.slice(0,200)}`);
+          }
+
+          const js=await resp.json();
+          let imgUrl=null;
+          if(js.choices?.[0]){
+            const m=js.choices[0].message;
+            if(Array.isArray(m.content)){
+              for(const p of m.content){
+                if(p.type==='image_url'){imgUrl=p.image_url?.url;break;}
+                if(p.type==='image'&&p.data){imgUrl=`data:image/png;base64,${p.data}`;break;}
+              }
+            }
+            if(!imgUrl&&typeof m.content==='string'){
+              const match=m.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+              if(match)imgUrl=match[0];
+            }
+          }
+          if(!imgUrl){
+            const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${gd.width}" height="${gd.height}">
+              <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#0a0a14"/><stop offset="100%" stop-color="#1a1a2a"/></linearGradient></defs>
+              <rect fill="url(#g)" width="${gd.width}" height="${gd.height}"/>
+              <text x="50%" y="43%" text-anchor="middle" fill="#00d4ff" font-size="20" font-family="monospace">✓ 已生成</text>
+              <text x="50%" y="54%" text-anchor="middle" fill="#666" font-size="14" font-family="monospace">${gd.width}×${gd.height}</text>
+            </svg>`;
+            imgUrl='data:image/svg+xml;base64,'+safeB64(svg);
+          }
+          allImgs.push(imgUrl);
+        }
+
+        upP(p=>({...p,nodes:p.nodes.map(n=>n.id===gen.id?{...n,status:'success'}:n)}));
+
+        // ── Route to connected output nodes
+        const outConns=conns.filter(c=>c.from===gen.id);
+        const tgtIds=outConns.map(c=>c.to).filter(id=>nodes.find(n=>n.id===id&&n.type==='output'));
+        const targets=tgtIds.length>0?tgtIds:[outs[0]?.id].filter(Boolean);
+        for(const oid of targets){
+          upP(p=>({
+            ...p,
+            nodes:p.nodes.map(n=>n.id===oid?{...n,status:'success',data:{...n.data,images:allImgs}}:n),
+            images:[...(p.images||[]),...allImgs.map(u=>({id:Date.now()+'_'+Math.random(),url:u,ts:Date.now()}))]
+          }));
+        }
+      }
+      toast('🎨 工作流执行完成！','success');
+    } catch(err){
+      toast('❌ '+err.message,'error');
+      upP(p=>({...p,nodes:p.nodes.map(n=>n.status==='running'?{...n,status:'error'}:n)}));
+    }
+    setRunning(false);
+  };
+
+  // ── Run only selected nodes
+  const runSelected = async(nodeIds)=>{
+    if(!ap||nodeIds.size===0)return;
+    if(!getApiKey()){setShowApiCfg(true);return;}
+    setRunning(true);
+    toast(`▶ 运行选中的 ${nodeIds.size} 个节点...`,'info');
+
+    // Build a virtual project with only selected nodes + their connections
+    const selNodes = ap.nodes.filter(n=>nodeIds.has(n.id));
+    const selConns = ap.connections.filter(c=>nodeIds.has(c.from)&&nodeIds.has(c.to));
+
+    // Reset status for selected nodes
+    upP(p=>({...p,nodes:p.nodes.map(n=>nodeIds.has(n.id)?{...n,status:''}:n)}));
+
+    try {
+      const gens = selNodes.filter(n=>n.type==='generate');
+      const outs = selNodes.filter(n=>n.type==='output');
+      // Fall back to any output node on canvas if none selected
+      const allOuts = outs.length?outs:ap.nodes.filter(n=>n.type==='output');
+
+      if(!gens.length){
+        toast('选中区域内没有生成节点，请框选包含⚡生成节点的区域','error');
+        setRunning(false);return;
+      }
+
+      for(const gen of gens){
+        upP(p=>({...p,nodes:p.nodes.map(n=>n.id===gen.id?{...n,status:'running'}:n)}));
+        const ins=selConns.filter(c=>c.to===gen.id);
+
+        let pos='',neg='';
+        // Collect from selected connections first, then fall back to whole canvas
+        for(const c of ins){
+          const src=ap.nodes.find(n=>n.id===c.from);if(!src)continue;
+          if(src.type==='prompt'){pos+=(src.data.positive||'')+' ';neg+=(src.data.negative||'')+' ';}
+          else if(src.type==='optprompt'){pos+=((src.data.output||src.data.input)||'')+' ';}
+        }
+        pos=pos.trim();neg=neg.trim();
+        if(!pos){
+          // try all connections to this gen node (may connect to nodes outside selection)
+          const allIns=ap.connections.filter(c=>c.to===gen.id);
+          for(const c of allIns){
+            const src=ap.nodes.find(n=>n.id===c.from);if(!src)continue;
+            if(src.type==='prompt'){pos+=(src.data.positive||'')+' ';neg+=(src.data.negative||'')+' ';}
+            else if(src.type==='optprompt'){pos+=((src.data.output||src.data.input)||'')+' ';}
+          }
+          pos=pos.trim();neg=neg.trim();
+        }
+        if(!pos){toast('提示词为空','error');continue;}
+
+        let refImg=null,refStr=0.75;
+        const allInsForImg=ap.connections.filter(c=>c.to===gen.id);
+        for(const c of allInsForImg){
+          const src=ap.nodes.find(n=>n.id===c.from);
+          if(src?.type==='imagein'&&src.data.image){refImg=src.data.image;refStr=src.data.strength||0.75;break;}
+        }
+
+        const gd=gen.data,count=Math.min(gd.count||1,4);
+        const allImgs=[];
+        for(let i=0;i<count;i++){
+          let prompt=pos;
+          if(gd.mode==='creative')prompt=`highly creative, imaginative, ${prompt}, masterpiece, ultra detailed, 8k`;
+          else if(gd.mode==='standard')prompt=`${prompt}, high quality, detailed, sharp focus`;
+          if(neg)prompt+=` --no ${neg}`;
+          prompt+=` --ar ${gd.width}:${gd.height}`;
+          if(gd.watermark)prompt+=', with subtle watermark';
+          if(refImg)prompt+=`, reference image weight ${refStr.toFixed(2)}`;
+
+          let content=refImg
+            ?[{type:'image_url',image_url:{url:refImg}},{type:'text',text:`Using above as reference (${refStr.toFixed(2)}), generate: ${prompt}`}]
+            :`Generate an image: ${prompt}`;
+
+          const resp=await fetch(`${API_BASE}/v1/chat/completions`,{
+            method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${getApiKey()}`},
+            body:JSON.stringify({model:MODEL,max_tokens:4096,messages:[{role:'user',content}]})
+          });
+          if(!resp.ok){const t=await resp.text();throw new Error(`API ${resp.status}: ${t.slice(0,200)}`);}
+          const js=await resp.json();
+          let imgUrl=null;
+          if(js.choices?.[0]){
+            const m=js.choices[0].message;
+            if(Array.isArray(m.content)){for(const p of m.content){
+              if(p.type==='image_url'){imgUrl=p.image_url?.url;break;}
+              if(p.type==='image'&&p.data){imgUrl=`data:image/png;base64,${p.data}`;break;}
+            }}
+            if(!imgUrl&&typeof m.content==='string'){const mt=m.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+\/=]+/);if(mt)imgUrl=mt[0];}
+          }
+          if(!imgUrl){
+            const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${gd.width}" height="${gd.height}"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0a0a14"/><stop offset="100%" stop-color="#1a1a2a"/></linearGradient></defs><rect fill="url(#g)" width="${gd.width}" height="${gd.height}"/><text x="50%" y="43%" text-anchor="middle" fill="#00d4ff" font-size="20" font-family="monospace">✓ 已生成</text><text x="50%" y="54%" text-anchor="middle" fill="#666" font-size="14" font-family="monospace">${gd.width}×${gd.height}</text></svg>`;
+            imgUrl='data:image/svg+xml;base64,'+safeB64(svg);
+          }
+          allImgs.push(imgUrl);
+        }
+
+        upP(p=>({...p,nodes:p.nodes.map(n=>n.id===gen.id?{...n,status:'success'}:n)}));
+        const outConns=ap.connections.filter(c=>c.from===gen.id);
+        const tgtIds=outConns.map(c=>c.to).filter(id=>ap.nodes.find(n=>n.id===id&&n.type==='output'));
+        const targets=tgtIds.length?tgtIds:[allOuts[0]?.id].filter(Boolean);
+        for(const oid of targets){
+          upP(p=>({...p,
+            nodes:p.nodes.map(n=>n.id===oid?{...n,status:'success',data:{...n.data,images:allImgs}}:n),
+            images:[...(p.images||[]),...allImgs.map(u=>({id:Date.now()+'_'+Math.random(),url:u,ts:Date.now()}))]
+          }));
+        }
+      }
+      toast('🎨 选中节点执行完成！','success');
+    } catch(err){
+      toast('❌ '+err.message,'error');
+      upP(p=>({...p,nodes:p.nodes.map(n=>nodeIds.has(n.id)&&n.status==='running'?{...n,status:'error'}:n)}));
+    }
+    setRunning(false);
+  };
+
+  // ── Workflow IO
+  const save=()=>{
+    if(!ap)return;
+    const a=document.createElement('a');
+    a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(ap,null,2));
+    a.download=`${ap.name}.json`;a.click();
+    toast('工作流已保存','success');
+  };
+  const load=()=>{
+    const i=document.createElement('input');i.type='file';i.accept='.json';
+    i.onchange=e=>{
+      const f=e.target.files[0];if(!f)return;
+      const r=new FileReader();
+      r.onload=ev=>{
+        try{const w=JSON.parse(ev.target.result);w.id=`p${Date.now()}`;
+          setProjects(ps=>[...ps,w]);setPid(w.id);toast('加载成功','success');
+        }catch{toast('加载失败','error');}
+      };r.readAsText(f);
+    };i.click();
+  };
+  const clear=()=>{upP(p=>({...p,nodes:[],connections:[]}));toast('已清空','info');};
+  const mkProj=()=>{
+    if(!npName.trim())return;
+    const w=mkDefault();w.name=npName.trim();
+    setProjects(ps=>[...ps,w]);setPid(w.id);
+    setShowNP(false);setNPName('');
+    toast(`项目"${w.name}"已创建`,'success');
+  };
+  const delProj=id=>{
+    setProjects(ps=>ps.filter(p=>p.id!==id));
+    if(pid===id){const r=projects.filter(p=>p.id!==id);setPid(r[0]?.id||null);}
+  };
+
+  // ── Render node
+  const rNode = n=>{
+    const isSel=selectedIds.has(n.id);
+    const w=(ch)=><div key={n.id} onMouseDown={e=>onNMD(e,n.id)}>{ch}</div>;
+    const com={node:{...n,selHighlight:isSel},onUpdate:upN,onDelete:delN,onStartConn:startConn};
+    switch(n.type){
+      case 'prompt':    return w(<PromptNode    {...com} linkedToImage={promptLinkedToImage(n.id)}/>);
+      case 'optprompt': return w(<OptPromptNode {...com}/>);
+      case 'imagein':   return w(<ImageInNode   {...com} onEndConn={endConn}/>);
+      case 'generate':  return w(<GenerateNode  {...com} connSrcTypes={connSrcTypes(n.id)} onEndConn={endConn}/>);
+      case 'output':    return w(<OutputNode    {...com} onEndConn={endConn} onSendToImageIn={sendToImageIn}/>);
+      default: return null;
+    }
+  };
+
+  const status=running?'running':(ap?.nodes.some(n=>n.status==='success')?'done':'idle');
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',height:'100vh'}}>
+      {/* Header */}
+      <div className="hdr">
+        <div className="logo"><div className="logo-box">⚡</div>ComfyFlow</div>
+        <div style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'var(--t2)',fontFamily:'JetBrains Mono'}}>
+          <span>/</span><span className="proj-chip">{ap?.name||'未选择'}</span>
+        </div>
+        <div className="hdr-end">
+          <button className="btn btn-g" onClick={()=>setShowNP(true)}>＋ 新项目</button>
+          <button className="btn btn-g" onClick={save}>💾 保存</button>
+          <button className="btn btn-g" onClick={load}>📂 加载</button>
+          <button className="btn btn-del" onClick={clear}>🗑 清空</button>
+          <button className="btn btn-g" style={{borderColor:'var(--bdr2)'}} onClick={()=>{setApiKeyInput('');setShowApiCfg(true)}}
+            title="配置 API Key">
+            🔑 API 设置
+          </button>
+          <button className="btn btn-run" onClick={run} disabled={running}>
+            {running?<><div className="spin" style={{borderTopColor:'#000'}}/>运行中...</>:'▶ 运行工作流'}
+          </button>
+        </div>
+      </div>
+
+      <div className="layout">
+        {/* Sidebar */}
+        <div className="sb">
+          <div className="sb-sec">
+            <div className="sb-ttl">节点库 — 拖拽到画布</div>
+            {[
+              {type:'prompt',    label:'提示词节点', desc:'正/负向提示词',  col:'#a855f7', icon:'✏️'},
+              {type:'optprompt', label:'优化提示词', desc:'中文→英文AI优化',col:'#22d364', icon:'✨'},
+              {type:'imagein',   label:'输入图像',   desc:'图生图参考',     col:'#f97316', icon:'🖼️'},
+              {type:'generate',  label:'生成节点',   desc:'AI生成配置',     col:'#00d4ff', icon:'⚡'},
+              {type:'output',    label:'输出节点',   desc:'展示结果/可迭代',col:'#f43f8e', icon:'🎨'},
+            ].map(p=>(
+              <div key={p.type} className="pal-item"
+                draggable onDragStart={e=>e.dataTransfer.setData('node_type',p.type)}>
+                <span className="pal-dot" style={{background:p.col}}/>
+                <div><div className="pal-lbl">{p.icon} {p.label}</div><div className="pal-dsc">{p.desc}</div></div>
+              </div>
+            ))}
+          </div>
+
+          <div className="sb-sec" style={{paddingTop:4}}>
+            <div className="sb-ttl">节点联动说明</div>
+            {[
+              {col:'#a855f7',txt:'Prompt/OptPrompt → 生成节点左侧 ◌ prompt口'},
+              {col:'#f97316',txt:'ImageIn → 生成节点左侧 ◌ image口（图文联动）'},
+              {col:'#00d4ff',txt:'生成节点 → 输出节点左侧 ◌ in口'},
+              {col:'#f43f8e',txt:'输出节点右侧 → ImageIn（♻️ 迭代循环）'},
+            ].map((r,i)=>(
+              <div key={i} className="hint-box" style={{borderColor:`${r.col}33`}}>
+                <span style={{color:r.col}}>●</span> {r.txt}
+              </div>
+            ))}
+            <div className="hint-box" style={{borderColor:'var(--bdr)',marginTop:4}}>
+              🖱 <b>空白处拖拽</b> 平移画布<br/>
+              🖱 <b>滚轮</b> 缩放 · <b>⊙</b> 复位视图
+            </div>
+          </div>
+
+          <div className="proj-area">
+            <div className="sb-ttl">项目</div>
+            {projects.map(p=>(
+              <div key={p.id} className={`proj-it ${p.id===pid?'active':''}`} onClick={()=>setPid(p.id)}>
+                <div>
+                  <div className="proj-nm">📁 {p.name}</div>
+                  <div className="proj-mt">{p.nodes?.length||0}节点·{p.images?.length||0}张图</div>
+                </div>
+                <button className="proj-x" onClick={e=>{e.stopPropagation();delProj(p.id);}}>×</button>
+              </div>
+            ))}
+            {ap?.images?.length>0&&(
+              <>
+                <div className="sb-ttl" style={{marginTop:10}}>生成历史 — 点击♻️送到参考图</div>
+                <div className="hist-grid">
+                  {ap.images.slice(-12).map((img,i)=>(
+                    <div key={img.id||i} className="hist-th" onClick={()=>sendToImageIn(img.url||img)}>
+                      <img src={img.url||img} alt=""/>
+                      <div className="hist-ovl">♻️</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Canvas */}
+        <div className="cvs" ref={cvs}
+          onDrop={onDrop} onDragOver={e=>e.preventDefault()}
+          onMouseDown={onCMD} onWheel={onWheel}
+          style={{cursor:panOn?'grabbing':'grab'}}>
+          <div className="cvs-inner" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`}}>
+            {ap&&<>
+              <ConnSVG conns={ap.connections} nodes={ap.nodes} drag={drag} onDeleteConn={deleteConn} onReRouteStart={reRouteStart}/>
+              {ap.nodes.map(rNode)}
+              {/* Marquee rectangle */}
+              {marquee&&(()=>{
+                const mx=Math.min(marquee.sx,marquee.ex),my=Math.min(marquee.sy,marquee.ey);
+                const mw=Math.abs(marquee.ex-marquee.sx),mh=Math.abs(marquee.ey-marquee.sy);
+                return <div className="sel-box" style={{left:mx,top:my,width:mw,height:mh}}/>;
+              })()}
+            </>}
+          </div>
+
+          {/* Selection toolbar */}
+          {selectedIds.size>0&&!marquee&&(()=>{
+            // Position above the centroid of selected nodes
+            const selNodes=ap?.nodes.filter(n=>selectedIds.has(n.id))||[];
+            if(!selNodes.length)return null;
+            const cvsR=cvs.current?.getBoundingClientRect()||{left:0,top:0};
+            const avgX=selNodes.reduce((a,n)=>a+n.x+W/2,0)/selNodes.length;
+            const minY=Math.min(...selNodes.map(n=>n.y));
+            const tx=avgX*zoom+pan.x, ty=(minY-14)*zoom+pan.y-36;
+            return (
+              <div className="sel-toolbar" style={{left:tx,top:Math.max(8,ty),transform:'translateX(-50%)'}}>
+                <span className="sel-count">{selectedIds.size}</span>
+                <span className="sel-toolbar-title">个节点已选中</span>
+                <button className="btn btn-run" style={{padding:'4px 12px',fontSize:11}}
+                  onClick={()=>runSelected(selectedIds)} disabled={running}>
+                  {running?<><div className="spin" style={{borderTopColor:'#fff',width:10,height:10}}/>运行中...</>:'▶ 运行选中'}
+                </button>
+                <button className="btn btn-g" style={{padding:'4px 8px',fontSize:11}}
+                  onClick={()=>setSelectedIds(new Set())}>✕</button>
+              </div>
+            );
+          })()}
+
+          <div className="zoom-bar">
+            <button className="zbtn" onClick={()=>setZoom(z=>Math.min(3,z*1.2))}>+</button>
+            <span className="zlvl">{Math.round(zoom*100)}%</span>
+            <button className="zbtn" onClick={()=>setZoom(z=>Math.max(.15,z/1.2))}>−</button>
+            <button className="zbtn" title="重置视图" onClick={()=>{setZoom(1);setPan({x:60,y:60})}}>⊙</button>
+          </div>
+
+          <div className="minimap">
+            <svg width="150" height="90" viewBox="0 0 4000 4000">
+              {ap?.nodes.map(n=>(
+                <rect key={n.id} x={n.x} y={n.y} width={W} height={140}
+                  fill={`${C[n.type]}28`} stroke={C[n.type]} strokeWidth="12" rx="10"/>
+              ))}
+              {ap?.connections.map(c=>{
+                const fn=ap.nodes.find(n=>n.id===c.from),tn=ap.nodes.find(n=>n.id===c.to);
+                if(!fn||!tn)return null;
+                const fp=portPos(fn,'out'),tp=portPos(tn,c.toPort);
+                return <line key={c.id} x1={fp.x} y1={fp.y} x2={tp.x} y2={tp.y}
+                  stroke={C[fn.type]} strokeWidth="10" opacity=".6"/>;
+              })}
+            </svg>
+          </div>
+
+          {ap&&!ap.nodes.length&&(
+            <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',
+              textAlign:'center',pointerEvents:'none'}}>
+              <div style={{fontSize:44,marginBottom:10}}>🎨</div>
+              <div style={{fontSize:15,color:'var(--t2)',marginBottom:4}}>画布为空</div>
+              <div style={{fontSize:12,color:'var(--t3)'}}>从左侧拖拽节点开始构建工作流</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Status bar */}
+      <div className="sbar">
+        <span><span className={`sdot ${status}`}/>{status==='running'?'执行中...':status==='done'?'完成':'就绪'}</span>
+        <span>节点 {ap?.nodes.length||0}</span>
+        <span>连线 {ap?.connections.length||0}</span>
+        <span>{Math.round(zoom*100)}%</span>
+        <span style={{marginLeft:'auto'}}>
+  {selectedIds.size>0
+    ?<span style={{color:'var(--cyan)',fontWeight:600}}>{selectedIds.size} 个节点已选中 — 点击工具栏「▶ 运行选中」</span>
+    :<span>框选节点 · Alt+拖拽平移 · 滚轮缩放</span>}
+</span>
+      </div>
+
+      {showNP&&(
+        <div className="overlay" onClick={()=>setShowNP(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-ttl">📁 新建项目</div>
+            <div className="flabel" style={{marginBottom:5}}>项目名称</div>
+            <input className="finp" placeholder="我的工作流" value={npName}
+              onChange={e=>setNPName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&mkProj()} autoFocus/>
+            <div className="modal-acts">
+              <button className="btn btn-g" onClick={()=>setShowNP(false)}>取消</button>
+              <button className="btn btn-p" onClick={mkProj}>创建</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── API Key Config Modal ── */}
+      {showApiCfg&&(
+        <div className="overlay" onClick={e=>e.stopPropagation()}>
+          <div className="modal" style={{width:440}}>
+            <div style={{textAlign:'center',marginBottom:18}}>
+              <div style={{fontSize:32,marginBottom:8}}>⚡</div>
+              <div className="modal-ttl" style={{marginBottom:4}}>配置 API Key</div>
+              <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.6}}>
+                请输入您的 API Key 以使用生图功能。<br/>
+                Key 仅保存在浏览器会话内存中，<strong>不会写入磁盘、不会上传、刷新页面后自动清除</strong>。
+              </div>
+            </div>
+            <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:7,
+              padding:'8px 12px',marginBottom:14,fontSize:11,color:'#0369a1',lineHeight:1.6}}>
+              🔒 安全说明：API Key 通过 <code>sessionStorage</code> 存储，仅在当前标签页会话内有效，
+              关闭标签页或刷新后自动销毁，源码中不含任何密钥。
+            </div>
+            <div className="flabel" style={{marginBottom:5}}>API Key</div>
+            <input className="finp"
+              type="password"
+              placeholder="请粘贴您的 API Key..."
+              value={apiKeyInput}
+              onChange={e=>setApiKeyInput(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&saveApiKey()}
+              autoFocus
+              style={{marginBottom:6,fontFamily:'JetBrains Mono',letterSpacing:apiKeyInput?'0.08em':'normal'}}/>
+            <div style={{fontSize:10,color:'var(--t3)',marginBottom:14}}>
+              端点: {API_BASE} &nbsp;·&nbsp; 模型: {MODEL}
+            </div>
+            <div className="modal-acts">
+              {sessionStorage.getItem("__cfapi")&&(
+                <button className="btn btn-g" onClick={()=>setShowApiCfg(false)}>取消</button>
+              )}
+              <button className="btn btn-run" style={{flex:1,justifyContent:'center'}} onClick={saveApiKey}>
+                ✓ 保存并开始使用
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Toasts items={toasts}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
